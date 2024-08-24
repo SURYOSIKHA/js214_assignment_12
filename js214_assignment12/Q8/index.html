@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .dark-theme {
+            --bg-color: #2c2c2c;
+            --text-color: #e0e0e0;
+        }
+
+        .light-theme {
+            --bg-color: #f9f9f9;
+            --text-color: #333;
+        }
+
+        .theme-toggle {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        .theme-toggle label {
+            font-weight: bold;
+            margin-left: 10px;
+            cursor: pointer;
+        }
+
+        .theme-toggle input {
+            transform: scale(1.5);
+            cursor: pointer;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        #city-input {
+            width: 100%;
+            max-width: 400px;
+            padding: 15px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 25px;
+            outline: none;
+            margin-bottom: 20px;
+            transition: border-color 0.3s;
+        }
+
+        #city-input:focus {
+            border-color: #007bff;
+        }
+
+        #search-btn {
+            padding: 15px 30px;
+            font-size: 16px;
+            border: none;
+            border-radius: 25px;
+            background-color: #007bff;
+            color: #fff;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-bottom: 40px;
+        }
+
+        #search-btn:hover {
+            background-color: #0056b3;
+        }
+
+        .weather-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .weather-card {
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 15px;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            width: 250px;
+            text-align: center;
+        }
+
+        .weather-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0px 6px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin-top: 40px;
+        }
+
+        .pagination button {
+            margin: 0 10px;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            background-color: #007bff;
+            color: #fff;
+            transition: background-color 0.3s;
+        }
+
+        .pagination button:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+            background-color: #6c757d;
+        }
+
+        .pagination button:not(:disabled):hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="theme-toggle">
+        <input type="checkbox" id="theme-switch"> 
+        <label for="theme-switch">Dark Mode</label>
+    </div>
+
+    <h1>Weather Dashboard</h1>
+
+    <div style="text-align: center;">
+        <input type="text" id="city-input" placeholder="Enter city name">
+        <br>
+        <button id="search-btn">Search</button>
+    </div>
+
+    <div id="weather-container" class="weather-container"></div>
+
+    <div class="pagination" id="pagination">
+        <button id="prev-btn" disabled>Previous</button>
+        <button id="next-btn">Next</button>
+    </div>
+
+    <script>
+        const apiKey = '517582c99ce1b6719974d1e065818cda';
+        const cityInput = document.getElementById('city-input');
+        const searchBtn = document.getElementById('search-btn');
+        const weatherContainer = document.getElementById('weather-container');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const themeSwitch = document.getElementById('theme-switch');
+
+        let currentPage = 1;
+        let totalPages = 1;
+        let cityName = '';
+        let theme = localStorage.getItem('theme') || 'light';
+
+        // Correct theme application logic
+        document.body.classList.add(`${theme}-theme`);
+        themeSwitch.checked = theme === 'dark';
+
+        themeSwitch.addEventListener('change', function () {
+            theme = themeSwitch.checked ? 'dark' : 'light';
+            document.body.className = `${theme}-theme`;
+            localStorage.setItem('theme', theme);
+        });
+
+        searchBtn.addEventListener('click', function () {
+            cityName = cityInput.value;
+            if (cityName) {
+                currentPage = 1;  // Reset to first page on new search
+                fetchWeatherData();
+            } else {
+                alert('Please enter a city name.');
+            }
+        });
+
+        prevBtn.addEventListener('click', function () {
+            if (currentPage > 1) {
+                currentPage--;
+                fetchWeatherData();
+            }
+        });
+
+        nextBtn.addEventListener('click', function () {
+            if (currentPage < totalPages) {
+                currentPage++;
+                fetchWeatherData();
+            }
+        });
+
+        function fetchWeatherData() {
+            const url = `https://api.openweathermap.org/data/2.5/forecast?q=${cityName}&units=metric&appid=${apiKey}`;
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.cod !== '200') {
+                        alert('City not found. Please try again.');
+                        return;
+                    }
+                    totalPages = Math.ceil(data.list.length / 7);  // Adjust for pagination
+                    updateWeatherUI(data);
+                    updatePagination();
+                })
+                .catch(error => {
+                    console.error('Error fetching weather data:', error);
+                    alert('An error occurred while fetching data. Please try again.');
+                });
+        }
+
+        function updateWeatherUI(data) {
+            weatherContainer.innerHTML = '';
+            const start = (currentPage - 1) * 7;
+            const end = start + 7;
+            const weatherData = data.list.slice(start, end);
+
+            weatherData.forEach(weather => {
+                const card = document.createElement('div');
+                card.className = 'weather-card';
+                card.innerHTML = `
+                    <h2>${data.city.name}, ${data.city.country}</h2>
+                    <p><strong>Temperature:</strong> ${weather.main.temp}°C</p>
+                    <p><strong>Weather:</strong> ${weather.weather[0].description}</p>
+                    <p><strong>Wind Speed:</strong> ${weather.wind.speed} m/s</p>
+                `;
+                weatherContainer.appendChild(card);
+            });
+        }
+
+        function updatePagination() {
+            prevBtn.disabled = currentPage === 1;
+            nextBtn.disabled = currentPage === totalPages;
+        }
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Library Management System</title>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
+</head>
+<body>
+
+    <h1>Library Management System</h1>
+
+    <!-- Add Book Form -->
+    <form id="add-book-form">
+        <input type="text" id="book-name" placeholder="Book Name" required>
+        <input type="text" id="book-author" placeholder="Author" required>
+        <input type="text" id="book-category" placeholder="Category" required>
+        <input type="date" id="published-date" placeholder="Published Date" required>
+        <input type="checkbox" id="availability"> Available
+        <button type="submit">Add Book</button>
+    </form>
+
+    <!-- Books List -->
+    <div id="books-list"></div>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            databaseURL: "YOUR_DATABASE_URL",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Add Book
+        document.getElementById('add-book-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const bookId = db.ref().child('books').push().key;
+            const bookData = {
+                id: bookId,
+                name: document.getElementById('book-name').value,
+                author: document.getElementById('book-author').value,
+                category: document.getElementById('book-category').value,
+                published_date: document.getElementById('published-date').value,
+                availability: document.getElementById('availability').checked
+            };
+            db.ref('books/' + bookId).set(bookData);
+            document.getElementById('add-book-form').reset();
+            loadBooks();
+        });
+
+        // Load Books
+        function loadBooks() {
+            db.ref('books').once('value', function(snapshot) {
+                const booksList = document.getElementById('books-list');
+                booksList.innerHTML = '';
+                snapshot.forEach(function(childSnapshot) {
+                    const book = childSnapshot.val();
+                    const bookElement = document.createElement('div');
+                    bookElement.innerHTML = `
+                        <h2>${book.name}</h2>
+                        <p>Author: ${book.author}</p>
+                        <p>Category: ${book.category}</p>
+                        <p>Published Date: ${book.published_date}</p>
+                        <p>Availability: ${book.availability ? 'Available' : 'Not Available'}</p>
+                        <button onclick="editBook('${book.id}')">Edit</button>
+                        <button onclick="deleteBook('${book.id}')">Delete</button>
+                    `;
+                    booksList.appendChild(bookElement);
+                });
+            });
+        }
+
+        // Edit Book
+        function editBook(bookId) {
+            db.ref('books/' + bookId).once('value', function(snapshot) {
+                const book = snapshot.val();
+                document.getElementById('book-name').value = book.name;
+                document.getElementById('book-author').value = book.author;
+                document.getElementById('book-category').value = book.category;
+                document.getElementById('published-date').value = book.published_date;
+                document.getElementById('availability').checked = book.availability;
+
+                // Update on submit
+                document.getElementById('add-book-form').onsubmit = function(e) {
+                    e.preventDefault();
+                    const updatedBookData = {
+                        id: bookId,
+                        name: document.getElementById('book-name').value,
+                        author: document.getElementById('book-author').value,
+                        category: document.getElementById('book-category').value,
+                        published_date: document.getElementById('published-date').value,
+                        availability: document.getElementById('availability').checked
+                    };
+                    db.ref('books/' + bookId).update(updatedBookData);
+                    document.getElementById('add-book-form').reset();
+                    loadBooks();
+                };
+            });
+        }
+
+        // Delete Book
+        function deleteBook(bookId) {
+            db.ref('books/' + bookId).remove();
+            loadBooks();
+        }
+
+        // Initial load of books
+        loadBooks();
+    </script>
+</body>
+</html>
